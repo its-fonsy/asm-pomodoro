@@ -1,4 +1,8 @@
 		.include "m328pdef.inc"
+		.macro	UNUSED_INT
+		reti
+		nop
+		.endmacro
 
 		.dseg
 		.org	SRAM_START
@@ -7,32 +11,32 @@ tim2_ow_cnt:	.byte	1
 
 		.cseg
 		.org	0x00
-		jmp RESET	; Reset Handler
-		jmp EXT_INT0	; IRQ0 Handler
-		jmp EXT_INT1	; IRQ1 Handler
-		jmp _PCINT0	; PCINT0 Handler
-		jmp _PCINT1	; PCINT1 Handler
-		jmp _PCINT2	; PCINT2 Handler
-		jmp WDT		; Watchdog Timer Handler
-		jmp TIM2_COMPA	; Timer2 Compare A Handler
-		jmp TIM2_COMPB	; Timer2 Compare B Handler
-		jmp TIM2_OVF	; Timer2 Overflow Handler
-		jmp TIM1_CAPT	; Timer1 Capture Handler
-		jmp TIM1_COMPA	; Timer1 Compare A Handler
-		jmp TIM1_COMPB	; Timer1 Compare B Handler
-		jmp TIM1_OVF	; Timer1 Overflow Handler
-		jmp TIM0_COMPA	; Timer0 Compare A Handler
-		jmp TIM0_COMPB	; Timer0 Compare B Handler
-		jmp TIM0_OVF	; Timer0 Overflow Handler
-		jmp SPI_STC	; SPI Transfer Complete Handler
-		jmp USART_RXC	; USART, RX Complete Handler
-		jmp USART_UDRE	; USART, UDR Empty Handler
-		jmp USART_TXC	; USART, TX Complete Handler
-		jmp ADC		; ADC Conversion Complete Handler
-		jmp EE_RDY	; EEPROM Ready Handler
-		jmp ANA_COMP	; Analog Comparator Handler
-		jmp TWI		; 2-wire Serial Interface Handler
-		jmp SPM_RDY	; Store Program Memory Ready Handler
+		jmp	RESET		; Reset Handler
+		UNUSED_INT		; IRQ0 Handler
+		UNUSED_INT		; IRQ1 Handler
+		UNUSED_INT		; PCINT0 Handler
+		UNUSED_INT		; PCINT1 Handler
+		UNUSED_INT		; PCINT2 Handler
+		UNUSED_INT		; Watchdog Timer Handler
+		UNUSED_INT		; Timer2 Compare A Handler
+		UNUSED_INT		; Timer2 Compare B Handler
+		jmp 	TIM2_OVF	; Timer2 Overflow Handler
+		UNUSED_INT		; Timer1 Capture Handler
+		jmp 	TIM1_COMPA	; Timer1 Compare A Handler
+		UNUSED_INT		; Timer1 Compare B Handler
+		UNUSED_INT		; Timer1 Overflow Handler
+		UNUSED_INT		; Timer0 Compare A Handler
+		UNUSED_INT		; Timer0 Compare B Handler
+		UNUSED_INT		; Timer0 Overflow Handler
+		UNUSED_INT		; SPI Transfer Complete Handler
+		UNUSED_INT		; USART, RX Complete Handler
+		UNUSED_INT		; USART, UDR Empty Handler
+		UNUSED_INT		; USART, TX Complete Handler
+		UNUSED_INT		; ADC Conversion Complete Handler
+		UNUSED_INT		; EEPROM Ready Handler
+		UNUSED_INT		; Analog Comparator Handler
+		UNUSED_INT		; 2-wire Serial Interface Handler
+		UNUSED_INT		; Store Program Memory Ready Handler
 
 RESET:		ldi	r16,'0'
 		sts	cnt,r16
@@ -114,31 +118,5 @@ timer_end:	sts	cnt,r16
 
 line_one:	.db	"                ",NULL,NULL
 line_two:	.db	"Pefforza        ",NULL,NULL
-
-EXT_INT0:	reti
-EXT_INT1:	reti
-_PCINT0:	reti
-_PCINT1:	reti
-_PCINT2:	reti
-WDT:		reti
-TIM2_COMPA:	reti
-TIM2_COMPB:	reti
-;TIM2_OVF:  	reti
-TIM1_CAPT: 	reti
-;TIM1_COMPA:	reti
-TIM1_COMPB:	reti
-TIM1_OVF:  	reti
-TIM0_COMPA:	reti
-TIM0_COMPB:	reti
-TIM0_OVF:  	reti
-SPI_STC:   	reti
-USART_RXC: 	reti
-USART_UDRE:	reti
-USART_TXC: 	reti
-ADC:		reti
-EE_RDY:		reti
-ANA_COMP:	reti
-TWI:		reti
-SPM_RDY:	reti
 
 		.include "lcd.s"
