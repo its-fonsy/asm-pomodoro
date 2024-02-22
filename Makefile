@@ -13,7 +13,7 @@ SRC	:= main.s
 HEX	:= main.hex
 
 $(HEX): $(SRC)
-	$(AVRA) $(AVRA_FLAGS) -fI $<
+	$(AVRA) $(AVRA_FLAGS) -o $@ -fI $<
 
 flash: $(HEX)
 	$(AVRDUDE) $(AVRDUDE_FLAGS) -U flash:w:$<
