@@ -9,6 +9,8 @@
 	.equ LCD_DB6_PIN	= 5
 	.equ LCD_DB7_PIN	= 6
 	.equ NULL		= 0x00
+	.equ NEW_LINE		= 0x0A
+	.equ CR			= 0x0D
 
 	; LCD PORT ? DB7 DB6 DB5 DB4 EN RS RW
 	;          7  6   5   4   3   2  1  0

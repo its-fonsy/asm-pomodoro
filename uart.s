@@ -11,8 +11,6 @@
 ;
 ;str:	.db	"Hello", 0x0A, 0x0D, 0x00	
 
-		rjmp	main
-
 USART_tx_str:	lpm	r16,Z+
 		cpi	r16,0x00
 		breq	USART_ret
