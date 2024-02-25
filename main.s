@@ -12,6 +12,7 @@
 		.equ	BTN_STATE_RELEASED_BIT = 0
 		.equ	BTN_STATE_WAIT_STABLE_PRESS_BIT = 1
 		.equ	BTN_STATE_WAIT_STABLE_RELEASE_BIT = 2
+		.equ	BTN_FSM_BIT = 3
 
 		; ASCII char
 		.equ NULL		= 0x00
@@ -82,54 +83,86 @@ btn_fsm:	sbrc	r16,BTN_STATE_WAIT_STABLE_PRESS_BIT
 
 btn_stable_press:
 		lds	r17,db_cnt
+		sbrs	r16,BTN_FSM_BIT
+		rjmp	wait_for_btn0_stable_press
+
+		; wait for stable press of  BTN1
+		sbis	PINB,1	
+		inc	r17
+		sts	db_cnt,r17
+		sbrs	r17,5
+		ret
+		rjmp	btn1_pressed
+
+wait_for_btn0_stable_press:
 		sbis	PINB,0
 		inc	r17
 		sts	db_cnt,r17
-
-		sbrs	r17,5	; count to 16 = 2^5
+		sbrs	r17,5
 		ret
+		rjmp	btn0_pressed
 
-		; BTN0 has been denounced
-
-		; send USART message
-		ldi	ZL,LOW(2*btn_db_msg)
-		ldi	ZH,HIGH(2*btn_db_msg)
+btn0_pressed:	ldi	ZL,LOW(2*btn0_db_msg)
+		ldi	ZH,HIGH(2*btn0_db_msg)
 		rcall	USART_tx_str
+		rjmp	btn_pres_exit
+
+btn1_pressed:	ldi	ZL,LOW(2*btn1_db_msg)
+		ldi	ZH,HIGH(2*btn1_db_msg)
+		rcall	USART_tx_str
+		rjmp	btn_pres_exit
 
 		; reset debounce counter
-		clr	r17
+btn_pres_exit:	clr	r17
 		sts	db_cnt,r17
 
 		; unset the pressed button0 flag
 		ldi	r17,(1 << BTN_STATE_WAIT_STABLE_RELEASE_BIT)
+		sbrc	r16,BTN_FSM_BIT
+		ldi	r17,(1 << BTN_STATE_WAIT_STABLE_RELEASE_BIT) | (1 << BTN_FSM_BIT)
 		sts	btn_fsm_state,r17
 
 		ret
 
 btn_stable_release:
 		lds	r17,db_cnt
+		sbrs	r16,BTN_FSM_BIT
+		rjmp	wait_for_btn0_stable_release
+
+		; wait for stable press of  BTN1
+		sbic	PINB,1	
+		inc	r17
+		sts	db_cnt,r17
+		sbrs	r17,4
+		ret
+		rjmp	btn1_released
+
+wait_for_btn0_stable_release:
 		sbic	PINB,0
 		inc	r17
 		sts	db_cnt,r17
-
-		sbrs	r17,5	; count to 16 = 2^5
+		sbrs	r17,4
 		ret
+		rjmp	btn0_released
 
-		; BTN0 has released
-
-		; send USART message
-		ldi	ZL,LOW(2*btn_rel_msg)
-		ldi	ZH,HIGH(2*btn_rel_msg)
+btn0_released:	ldi	ZL,LOW(2*btn0_rel_msg)
+		ldi	ZH,HIGH(2*btn0_rel_msg)
 		rcall	USART_tx_str
+		rjmp	btn_released
 
-		ldi	r16,NEW_LINE
+btn1_released:	ldi	ZL,LOW(2*btn1_rel_msg)
+		ldi	ZH,HIGH(2*btn1_rel_msg)
+		rcall	USART_tx_str
+		rjmp	btn_released
+
+btn_released:	ldi	r16,NEW_LINE
 		rcall	USART_tx_byte
 
 		; reset debounce counter
 		clr	r17
 		sts	db_cnt,r17
 
-		; unset the pressed button0 flag
+		; unset the pressed button flag
 		ldi	r17,(1 << BTN_STATE_RELEASED_BIT )
 		sts	btn_fsm_state,r17
 
@@ -137,9 +170,6 @@ btn_stable_release:
 
 ISR_PCINT0:	push	r17		
 		push	r16
-
-		; save the status of the PORTB
-		in	r16,PINB	
 
 		; check if a button has been already pressed
 		lds	r17,btn_fsm_state	
@@ -151,20 +181,35 @@ ISR_PCINT0:	push	r17
 
 update_btn_state:
 		ldi	r17,(1<<BTN_STATE_WAIT_STABLE_PRESS_BIT)
+		sbic	PINB,0
+		ori	r17,(1<<BTN_FSM_BIT)
 		sts	btn_fsm_state,r17
 
+		sbic	PINB,0
+		rjmp	int_b1_uart
+		rjmp	int_b0_uart
+
 		; send USART message
-		ldi	ZL,LOW(2*btn_isr_msg)
-		ldi	ZH,HIGH(2*btn_isr_msg)
+int_b0_uart:	ldi	ZL,LOW(2*btn0_isr_msg)
+		ldi	ZH,HIGH(2*btn0_isr_msg)
+		rcall	USART_tx_str
+		rjmp	int_exit
+
+int_b1_uart:	ldi	ZL,LOW(2*btn1_isr_msg)
+		ldi	ZH,HIGH(2*btn1_isr_msg)
 		rcall	USART_tx_str
 
 int_exit:	pop	r16
 		pop	r17
 		reti
 
-btn_isr_msg:	.db	"B0: RL 2 WP", NEW_LINE, CR, NULL
-btn_db_msg:	.db	"B0: WP 2 WR", NEW_LINE, CR, NULL
-btn_rel_msg:	.db	"B0: WR 2 RL", NEW_LINE, CR, NULL
+btn0_isr_msg:	.db	"B0: RL 2 WP", NEW_LINE, CR, NULL
+btn0_db_msg:	.db	"B0: WP 2 WR", NEW_LINE, CR, NULL
+btn0_rel_msg:	.db	"B0: WR 2 RL", NEW_LINE, CR, NULL
+
+btn1_isr_msg:	.db	"B1: RL 2 WP", NEW_LINE, CR, NULL
+btn1_db_msg:	.db	"B1: WP 2 WR", NEW_LINE, CR, NULL
+btn1_rel_msg:	.db	"B1: WR 2 RL", NEW_LINE, CR, NULL
 
 		.include "buttons.s"
 		.include "uart.s"

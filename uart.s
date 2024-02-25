@@ -11,12 +11,14 @@
 ;
 ;str:	.db	"Hello", 0x0A, 0x0D, 0x00	
 
-USART_tx_str:	lpm	r16,Z+
+USART_tx_str:	push	r16
+USART_str_loop:	lpm	r16,Z+
 		cpi	r16,0x00
 		breq	USART_ret
 		rcall	USART_tx_byte
-		rjmp	USART_tx_str
-USART_ret:	ret
+		rjmp	USART_str_loop
+USART_ret:	pop	r16
+		ret
 
 USART_init:	; init the USART
 		ldi	r16,LOW(BRC)
