@@ -62,6 +62,7 @@ RESET:		ldi	r16,LOW(RAMEND)
 		rcall	lcd_init
 		rcall	init_timers
 		rcall	init_int
+		rcall	UART_init
 		sei
 
 
@@ -202,3 +203,4 @@ line_two:	.db	"Pefforza        ",NULL,NULL
 
 		.include "lcd.s"
 		.include "buttons.s"
+		.include "uart.s"
