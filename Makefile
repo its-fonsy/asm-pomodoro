@@ -3,16 +3,19 @@ F_CPU	:= 16000000
 BAUD	:= 115200
 PORT	:= /dev/ttyACM0
 
+INC_DIR	:= inc
+
 AVRA	:= avra
 AVRDUDE	:= avrdude
 
 AVRDUDE_FLAGS	:= -c arduino -p $(MCU) -P $(PORT) -b $(BAUD)
-AVRA_FLAGS	:=
+AVRA_FLAGS	:= -I $(INC_DIR)
 
+INCS	:= $(wildcard inc/*.s)
 SRC	:= main.s
-HEX	:= main.hex
+TARGET	:= main.hex
 
-$(HEX): $(SRC)
+$(TARGET): $(SRC) $(INCS)
 	$(AVRA) $(AVRA_FLAGS) -o $@ -fI $<
 
 flash: $(HEX)
@@ -21,5 +24,5 @@ flash: $(HEX)
 clean:
 	rm -f *.eep.hex *.obj *.cof *.hex
 
-.PHONY: all clean
+.PHONY: clean flash
 
