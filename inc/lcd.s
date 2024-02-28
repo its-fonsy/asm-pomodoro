@@ -1,138 +1,78 @@
-	.equ LCD_DDR		= DDRD
-	.equ LCD_PORT		= PORTD
-	.equ LCD_PIN		= PIND
-	.equ LCD_RS_PIN		= 0
-	.equ LCD_RW_PIN		= 1
-	.equ LCD_EN_PIN		= 2
-	.equ LCD_DB4_PIN	= 3
-	.equ LCD_DB5_PIN	= 4
-	.equ LCD_DB6_PIN	= 5
-	.equ LCD_DB7_PIN	= 6
-	.equ NULL		= 0x00
-	.equ NEW_LINE		= 0x0A
-	.equ CR			= 0x0D
 
-	; LCD PORT ? DB7 DB6 DB5 DB4 EN RS RW
-	;          7  6   5   4   3   2  1  0
+lcd_update:	push	r16
 
-lcd_clear:
-	ldi	r16,0b00000001	; clear display
-	ldi	r17,0x00
-	rcall	lcd_inst
-	ret
+		; set cursor row 0, col 0
+		ldi	r16,(1<<7)
+		rcall	HD44780U_inst
 
-lcd_print_string:
-	lpm	r16,Z+
-	cpi	r16,NULL
-	breq	string_end
-	rcall	lcd_print_char
-	rjmp	lcd_print_string
-string_end:
-	ret
-	
-; r16 has the instruction, r17 the RS,RW
-lcd_send_byte:
-	mov	r18,r16		; copy content of r16
+		; print cnt value
+		lds	r16,cnt
+		rcall	LCD_print_int
 
-	; send the 4 MSB
-	swap	r16
-	andi	r16,0x0F
-	lsl	r16
-	lsl	r16
-	lsl	r16
-	or	r16, r17
-	out	LCD_PORT,r16
-	rcall	lcd_tog_en
+		; reset tim2 overflow counter variable
+		clr	r16
+		sts	tim2_ow_cnt,r16
 
-	; send the 4 LSB
-	andi	r18,0x0F
-	lsl	r18
-	lsl	r18
-	lsl	r18
-	or	r18, r17
-	out	LCD_PORT,r18
-	rcall	lcd_tog_en
+		; reset the device flag
+		lds	r16,dev_state
+		andi	r16,~(1 << LCD_UPDATE_BIT)
+		sts	dev_state,r16
 
-	ret
+		pop r16
 
-lcd_inst:
-	rcall	lcd_wait	; wait busy flag
-	clr	r17		; for every inst. RS=RW=E=0
-	rcall	lcd_send_byte	; send byte to LCD
-	ret
-	
-lcd_print_char:
-	rcall	lcd_wait		; wait busy flag
-	ldi	r17,(1<<LCD_RS_PIN)
-	rcall	lcd_send_byte		; send char to LCD
-	cbi	LCD_PORT,LCD_RS_PIN	; reset RS
-	ret
+		ret
 
-lcd_wait:
-	ldi	r17,0b00000111		; set RW,EN,RS as output, DB as input
-	ldi	r18,0b00000010		; set RW pin, clear E and RS
-	out	LCD_DDR,r17
-	out	LCD_PORT,r18
-	nop
-lcd_busy:
-	rcall	lcd_tog_en		; toggle E to read 4 MSB from LCD
-	in	r17,LCD_PIN		; save them to r17
-	rcall	lcd_tog_en		; toggle E to load 4 LSB (don't need them)
-	andi	r17,(1<<LCD_DB7_PIN)	; check busy flag
-	brne	lcd_busy		; if busy flag is 0 then repeat
+LCD_init:	rcall	TIM2_init
+		rcall	HD44780U_init
+		ret
 
-	; set back LCD DATA pin as output
-	ldi	r17,0xFF
-	ldi	r18,0x00
-	out	LCD_DDR,r17
-	out	LCD_PORT,r18
-	nop
+; print the string NULL terminated that starts in address ZH,ZL
+LCD_print_string:
+		push	r16
+		lpm	r16,Z+
+		cpi	r16,NULL
+		breq	string_end
+		rcall	LCD_print_char
+		rjmp	LCD_print_string
+string_end:	pop	r16
+		ret
 
-	ret
+; print the char (in ASCII code) in r16
+LCD_print_char: push	r17
+		rcall	HD44780U_wait			; wait busy flag
+		ldi	r17,(1<<HD44780U_RS_PIN)
+		rcall	HD4478U_send_byte		; send char to HD44780U
+		cbi	HD44780U_PORT,HD44780U_RS_PIN	; reset RS
+		pop	r17
+		ret
 
-lcd_tog_en:
-	sbi	LCD_PORT,LCD_EN_PIN
-	push	r16	; waste 4 cycle
-	pop	r16
-	cbi	LCD_PORT,LCD_EN_PIN
-	ret
+; print the number inside r16
+LCD_print_int:	ori	r16,0x30	; convert number to ASCII digit
+		rjmp	LCD_print_char
 
-lcd_init:
-	; set LCD_PORT as output
-	; and clear all pins
-	ldi	r16,0xFF
-	ldi	r17,0x00
-	out	LCD_DDR,r16
-	out	LCD_PORT,r16
-	nop
+; Configure Timer2 to refresh the display
+TIM2_init:	ldi	r16,(1<<TOIE2)
+		sts	TIMSK2,r16				; Enable interrupt on overflow
+		ldi	r16,(1<<CS22)|(1<<CS21)|(1<<CS20)
+		sts	TCCR2B,r16				; Set prescaler 1024
+		ret
 
-	; wait 15ms
-	ldi	r16,250
-init_del_out_loop:
-	ldi	r17,239
-	nop
-init_del_inn_loop:
-	dec	r17
-	nop
-	brne	init_del_inn_loop
-	dec	r16
-	brne	init_del_out_loop
-	nop
+; count 15 overflows, correspond to 245.76ms
+TIM2_OVF:	push	r16
+		lds	r16,tim2_ow_cnt
+		cpi	r16,7
+		brsh	set_disp_flag
+		inc	r16
+		sts	tim2_ow_cnt,r16
+		pop	r16
+		reti
 
-	; initialize the LCD
-	ldi	r16,0b00010000
-	out	LCD_PORT,r16
-	rcall	lcd_tog_en
+set_disp_flag:	lds	r16,dev_state
+		ori	r16,(1<<LCD_UPDATE_BIT)
+		sts	dev_state,r16
+		clr	r16
+		sts	tim2_ow_cnt,r16
+		pop	r16
+		reti
 
-	ldi	r16,0b00101000	; 4-bit on, 2 lines, 8x5 dots
-	rcall	lcd_inst
-
-	ldi	r16,0b00001100	; display on, curson off, blink off
-	rcall	lcd_inst
-
-	ldi	r16,0b00000110	; set address increment, and display shift off
-	rcall	lcd_inst
-
-	rcall	lcd_clear
-
-	ret
+		.include "hd44780u.s"

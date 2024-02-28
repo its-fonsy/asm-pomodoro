@@ -18,7 +18,7 @@ TARGET	:= main.hex
 $(TARGET): $(SRC) $(INCS)
 	$(AVRA) $(AVRA_FLAGS) -o $@ -fI $<
 
-flash: $(HEX)
+flash: $(TARGET)
 	$(AVRDUDE) $(AVRDUDE_FLAGS) -U flash:w:$<
 
 clean:
